@@ -5,7 +5,7 @@ import { generateUUID } from "../utils/uuid.ts";
 import { RESOURCE_ACTIONS } from "../types/index.ts";
 import type { Action, Resource } from "../types/index.ts";
 
-let db: DB;
+let db: DB | undefined;
 
 //
 //  Path helpers
@@ -36,7 +36,8 @@ function ensureDir(dir: string): void {
 
 function readAppVersion(): string {
   try {
-    return Deno.readTextFileSync("./VERSION").trim();
+    const versionUrl = new URL("../../VERSION", import.meta.url);
+    return Deno.readTextFileSync(versionUrl).trim();
   } catch {
     return "unknown";
   }
@@ -477,11 +478,15 @@ const BUILTIN_TEMPLATES = [
 ] as const;
 
 function loadTemplateHtml(id: string): string {
-  const url = new URL(`../../static/templates/${id}.html`, import.meta.url);
+  // Try data directory first (for desktop app), fallback to static directory
+  const dataDir = Deno.env.get("INVIO_DATA_DIR");
+  const templatePath = dataDir
+    ? `${dataDir}/${id}.html`
+    : new URL(`../../static/templates/${id}.html`, import.meta.url);
   try {
-    return Deno.readTextFileSync(url);
+    return Deno.readTextFileSync(templatePath);
   } catch (e) {
-    console.error(`Failed to read template ${url} (cwd=${Deno.cwd()}):`, e);
+    console.error(`Failed to read template ${templatePath} (cwd=${Deno.cwd()}):`, e);
     return "<html><body><p>Template unavailable.</p></body></html>";
   }
 }
@@ -602,7 +607,8 @@ export async function initDatabase(): Promise<void> {
   if (dbFileExisted) backupIfVersionChanged(db, dbPath);
 
   // Run idempotent migrations from .sql file
-  const sql = Deno.readTextFileSync("./src/database/migrations.sql");
+  const migrationsPath = Deno.env.get("MIGRATIONS_PATH") || "./src/database/migrations.sql";
+  const sql = Deno.readTextFileSync(migrationsPath);
   executeMigrations(db, parseSqlStatements(sql));
 
   // Post-migration setup
@@ -721,7 +727,8 @@ function getNumberingSettings(): {
     enabled: true,
   };
   try {
-    const rows = db.query(
+    const database = getDatabase();
+    const rows = database.query(
       "SELECT key, value FROM settings WHERE key IN ('invoicePrefix','invoiceIncludeYear','invoiceNumberPadding','invoiceNumberPattern')",
     );
     const m = new Map<string, string>();
@@ -738,7 +745,7 @@ function getNumberingSettings(): {
     cfg.pattern = (m.get("invoiceNumberPattern") || "").trim() || undefined;
 
     try {
-      const raw = db.query(
+      const raw = database.query(
         "SELECT value FROM settings WHERE key = 'invoiceNumberingEnabled' LIMIT 1",
       );
       if (raw.length > 0) {
@@ -755,7 +762,7 @@ function getNumberingSettings(): {
 
 /** Find the highest existing sequential suffix matching `likePrefix%`. */
 function findMaxSequence(likePrefix: string): number {
-  const rows = db.query(
+  const rows = getDatabase().query(
     "SELECT invoice_number FROM invoices WHERE invoice_number LIKE ?",
     [likePrefix + "%"],
   );

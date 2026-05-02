@@ -1,13 +1,89 @@
 <script lang="ts">
+  import { goto, invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
   import { getContext } from "svelte";
-  import { enhance } from "$app/forms";
+  import { enhance as kitEnhance } from "$app/forms";
+  import { DESKTOP_BACKEND_URL, isDesktopBuild, setDesktopSessionToken } from "$lib/desktop";
 
   let { form } = $props();
 
   let t = getContext("i18n") as (key: string, params?: Record<string, string>) => string;
 
   let isLoading = $state(false);
+  let desktopError = $state("");
+  let desktopTwoFactor = $state<{
+    username: string;
+    twoFactorToken: string;
+  } | null>(null);
+
+  function enhanceIfServer(formElement: HTMLFormElement) {
+    if (isDesktopBuild()) return {};
+
+    return kitEnhance(formElement, () => {
+      isLoading = true;
+      return async ({ update }) => {
+        await update();
+        isLoading = false;
+      };
+    });
+  }
+
+  async function handleSubmit(event: SubmitEvent) {
+    if (!isDesktopBuild()) return;
+
+    event.preventDefault();
+    desktopError = "";
+    isLoading = true;
+
+    const data = new FormData(event.currentTarget as HTMLFormElement);
+    const username = String(data.get("username") || desktopTwoFactor?.username || "");
+    const password = String(data.get("password") || "");
+    const token = String(data.get("token") || "");
+    const recoveryCode = String(data.get("recoveryCode") || "");
+
+    try {
+      let endpoint = "/api/v1/auth/login";
+      let payload: Record<string, string> = { username, password };
+
+      if (desktopTwoFactor) {
+        endpoint = recoveryCode ? "/api/v1/auth/recover-2fa" : "/api/v1/auth/verify-2fa";
+        payload = {
+          twoFactorToken: desktopTwoFactor.twoFactorToken,
+          ...(recoveryCode ? { recoveryCode } : { token }),
+        };
+      }
+
+      const res = await fetch(`${DESKTOP_BACKEND_URL}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        desktopError = body.error || `${res.status} ${res.statusText}`;
+        return;
+      }
+
+      if (body.twoFactorRequired && body.twoFactorToken) {
+        desktopTwoFactor = { username, twoFactorToken: body.twoFactorToken };
+        return;
+      }
+
+      if (!body.token) {
+        desktopError = "Login response did not include a session token";
+        return;
+      }
+
+      setDesktopSessionToken(body.token, Number(body.expiresIn || 3600));
+      await invalidateAll();
+      await goto("/dashboard", { replaceState: true, invalidateAll: true });
+    } catch (error) {
+      desktopError = error instanceof Error ? error.message : String(error);
+    } finally {
+      isLoading = false;
+    }
+  }
 </script>
 
 <div class="hero bg-base-200 min-h-[80vh]">
@@ -33,26 +109,27 @@
           method="POST"
           action="?/login"
           enctype="multipart/form-data"
-          use:enhance={() => {
-            isLoading = true;
-            return async ({ update }) => {
-              await update();
-              isLoading = false;
-            };
-          }}
+          onsubmit={handleSubmit}
+          use:enhanceIfServer
         >
-          {#if form?.error}
+          {#if desktopError}
+            <div class="alert alert-error mb-3">
+              <span>{t(desktopError)}</span>
+            </div>
+          {:else if form?.error}
             <div class="alert alert-error mb-3">
               <span>{t(form.error, (form as any)?.errorParams)}</span>
             </div>
           {/if}
 
-          {#if form?.twoFactorRequired}
+          {#if desktopTwoFactor}
+            <input type="hidden" name="username" value={desktopTwoFactor.username} />
+          {:else if form?.twoFactorRequired}
             <input type="hidden" name="twoFactorToken" value={form?.twoFactorToken ?? ""} />
             <input type="hidden" name="username" value={form?.username ?? ""} />
           {/if}
 
-          {#if !form?.twoFactorRequired}
+          {#if !form?.twoFactorRequired && !desktopTwoFactor}
             <div class="form-control">
               <label class="label" for="username">
                 <span class="label-text">{t("Username")}</span>

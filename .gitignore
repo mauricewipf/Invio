@@ -19,3 +19,10 @@
 .DS_Store
 /backend/data/*
 /chrome-headless-shell
+
+# IDE configuration
+.idea/
+
+# Desktop app build artifacts
+src-tauri/bin/
+src-tauri/target/

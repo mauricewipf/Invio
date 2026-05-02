@@ -1,0 +1,1 @@
+const c=new Set(["US","GB","BR","AU","CA","NZ","IE","MX"]);function u(e,i,o,n){const t=(e||"").trim(),r=(i||"").trim();if(!t&&!r)return"";if(!t)return r;if(!r)return t;if(n==="city-postal")return`${t} ${r}`;if(n==="postal-city")return`${r} ${t}`;const s=(o||"").trim().toUpperCase();return c.has(s)?`${t} ${r}`:`${r} ${t}`}export{u as f};

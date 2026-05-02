@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { goto, invalidateAll } from "$app/navigation";
   import { page } from "$app/state";
   import "@fontsource-variable/inter/wght.css";
   import { LayoutDashboard, LogOut, Ellipsis, Package, ReceiptText, Settings, UserCog, Users } from "lucide-svelte";
@@ -7,6 +8,7 @@
   import DemoAlert from "$lib/components/DemoAlert.svelte";
   import { setContext } from "svelte";
   import { createTranslator } from "$lib/i18n/mod";
+  import { clearDesktopSessionToken, isDesktopBuild } from "$lib/desktop";
   let { data, children } = $props();
 
   let authUser = $derived(data.user);
@@ -43,6 +45,15 @@
     if (target && !moreMenuDetails.contains(target)) {
       moreMenuDetails.open = false;
     }
+  }
+
+  async function handleLogout(event: MouseEvent) {
+    if (!isDesktopBuild()) return;
+
+    event.preventDefault();
+    clearDesktopSessionToken();
+    await invalidateAll();
+    await goto("/login", { replaceState: true, invalidateAll: true });
   }
 
   $effect(() => {
@@ -135,7 +146,7 @@
                       </li>
                     {/if}
                     <li>
-                      <a href="/logout">
+                      <a href="/logout" onclick={handleLogout}>
                         <LogOut size={16} />
                         {t("Logout")}
                       </a>
@@ -200,7 +211,7 @@
                   </li>
                 {/if}
                 <li>
-                  <a href="/logout">
+                  <a href="/logout" onclick={handleLogout}>
                     <LogOut size={16} />
                     {t("Logout")}
                   </a>

@@ -1,0 +1,20 @@
+[package]
+name = "invio"
+version = "2.0.0"
+description = "Self-hosted invoicing without the bloat"
+authors = ["Invio Contributors"]
+license = ""
+repository = ""
+edition = "2021"
+rust-version = "1.70"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tokio = { version = "1", features = ["time"] }
+reqwest = { version = "0.12", features = ["blocking"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

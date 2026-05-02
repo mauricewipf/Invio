@@ -1,0 +1,47 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "Invio",
+  "version": "2.0.0",
+  "identifier": "dev.invio.app",
+  "build": {
+    "frontendDist": "dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "cd /Users/mauricewipf/Documents/Repos/2025-11-02_invio-invoicing/Invio/frontend && DESKTOP_BUILD=true /Users/mauricewipf/.bun/bin/bun run vite dev --config vite.config.desktop.ts",
+    "beforeBuildCommand": "bash /Users/mauricewipf/Documents/Repos/2025-11-02_invio-invoicing/Invio/scripts/build-frontend-desktop.sh"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Invio",
+        "url": "index.html",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "useHttpsScheme": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg"],
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.icns"
+    ],
+    "category": "Business",
+    "shortDescription": "Self-hosted invoicing",
+    "longDescription": "Invio - Selfhosted invoicing without the bloat",
+    "externalBin": ["bin/backend"],
+    "resources": {
+      "dist": "dist",
+      "../backend/src/database/migrations.sql": "migrations.sql",
+      "../backend/static/templates/professional-modern.html": "professional-modern.html",
+      "../backend/static/templates/minimalist-clean.html": "minimalist-clean.html"
+    }
+  }
+}

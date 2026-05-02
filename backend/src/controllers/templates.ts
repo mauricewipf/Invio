@@ -554,7 +554,7 @@ export async function installLocalTemplateFromZip(
   zipData: Uint8Array,
 ): Promise<Template> {
   // Create a blob from the zip data for the ZipReader
-  const blob = new Blob([zipData]);
+  const blob = new Blob([zipData as BlobPart]);
   const zipReader = new ZipReader(blob.stream());
 
   try {
